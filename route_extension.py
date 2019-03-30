@@ -58,6 +58,8 @@ class RouteExtension:
         return new_hop
 
     def update_amounts(self, hops):
+        #print "About to update amounts for the following route:\n%s" % hops
+        #raw_input("ok ma?")
         additional_fees = 0
         hop_out_channel_id = self.rebalance_channel.chan_id
         for hop in reversed(hops):

@@ -59,20 +59,25 @@ class Yen:
         fee_rate_milli_msat_array = np.array(self.graph.es["fee_rate_milli_msat"])
         # the division by 1 million is because we use the amount in msats and the fee values are in msats too
         # then we want the array to be in sats, hence the last // 1000
-        bad_weights_array = (25000 + base_fee_msat_array + fee_rate_milli_msat_array * self.invoice_amount_msats // 1000000) // 1000
+        bad_weights_array = (25  # 25 sat per hop penalty
+                            + base_fee_msat_array // 1e3  # base fee from the node, in msat->sat
+                            + (fee_rate_milli_msat_array * self.invoice_amount_msats)  # milli msta, msat -> sat
+                            // 1e9)  # in sats
 
-        print "Done"
+        print "Donezo"
 
         """
-        index = self.graph.es.select(name_eq="621690262665494528_2")[0].index
+        index = self.graph.es.select(name_eq="605542834983993344_1")[0].index
         print "Example: node #%d, name %s, from, to: %s, base_fee_msat: %s, fee_rate_milli_msat: %s" % (index,
                                     self.graph.es[index]["name"],
                                     [self.graph.vs[i]["name"] for i in list(self.graph.es[index].tuple)],
                                     base_fee_msat_array[index],
                                     fee_rate_milli_msat_array[index])
+        print "invoice_amount_msats=%s" % self.invoice_amount_msats
         print "Computed bad weight: %s" % bad_weights_array[index]
         raw_input("ok lor?")
         """
+        
         return list(bad_weights_array)
         """
         print self.graph.es["base_fee_msat"]
