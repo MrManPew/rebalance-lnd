@@ -1,6 +1,14 @@
-# rebalance-lnd
+# rebalance-lnd (pqr branch)
 
 Using this script you can easily rebalance individual channels of your lnd node.
+
+## Disclaimer
+This branch is am experimental branch, breaking existing functionality and potentially breaking everything else.
+Use at your own risk.
+The work done here reimplements the `lnd` call we rely on to get candidate routes for rebalances, `QueryRoutes`.
+It does so by using a python/igraph implementation of Yen's k-shortest path (ksp) algorithm using a few (hopefully smart)
+tricks to deal with the dynamic nature of fees in the network.
+There is a lot more to do though, hence the completely separate dev branch used here.
 
 ## Installation
 
