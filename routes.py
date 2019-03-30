@@ -1,8 +1,9 @@
 import sys
 from route_extension import RouteExtension
+import rpc_pb2 as ln
 
-MAX_ROUTES_TO_REQUEST = 60
-ROUTE_REQUEST_INCREMENT = 15
+MAX_ROUTES_TO_REQUEST = 80
+ROUTE_REQUEST_INCREMENT = 20
 
 
 def debug(message):
@@ -10,8 +11,9 @@ def debug(message):
 
 
 class Routes:
-    def __init__(self, lnd, payment_request, first_hop_channel_id, last_hop_channel):
+    def __init__(self, lnd, pqr, payment_request, first_hop_channel_id, last_hop_channel):
         self.lnd = lnd
+        self.pqr = pqr
         self.payment_request = payment_request
         self.first_hop_channel_id = first_hop_channel_id
         self.last_hop_channel = last_hop_channel
@@ -43,13 +45,77 @@ class Routes:
             self.request_routes(num_routes_to_request)
 
     def request_routes(self, num_routes_to_request):
-        debug("requesting {:d} routes from lnd, please wait.".format(num_routes_to_request))
-        routes = self.lnd.get_routes(self.last_hop_channel.remote_pubkey, self.get_amount(), num_routes_to_request)
-        debug("lnd returned {:d} routes that will now be tested".format(len(routes)))
+
+        # pqr testing override
+        if False:
+            routes = self.lnd.get_routes(self.last_hop_channel.remote_pubkey, self.get_amount(), num_routes_to_request)
+        else:
+            routes, costs, chans = self.pqr.pyqueryroutes(self.first_hop_channel_id,
+                                                          self.last_hop_channel.remote_pubkey,
+                                                          self.get_amount(),
+                                                          num_routes_to_request)
+
+            # TODO: turn what is a list of channel IDs into a list of proper hops
+            # plus add the first hop between our node using the forced channel
+            pqr_routes = []
+            for j in range(len(routes)):
+                route = routes[j]
+
+                first_hop = self.route_extension.create_new_hop(self.get_amount()*1000,
+                                                None,
+                                                self.lnd.get_current_height() + self.route_extension.get_expiry_delta_last_hop(),
+                                                pub_key=self.pqr.node_from_pubkey,
+                                                chan_id=self.first_hop_channel_id,
+                                                capacity=self.pqr.first_hop_capacity)
+                route_hops = [first_hop]
+
+                for i in range(len(chans[j])):
+                    amount_msat = self.get_amount()*1000
+                    chan_id_name = int(chans[j][i]["name"][:-2])
+                    chan_id_capacity = chans[j][i]["capacity"]
+
+
+                    (_, pub_key_id) = self.pqr.g.es.select(name_eq=chans[j][i]["name"])[0].tuple
+                    pub_key =  self.pqr.g.vs[pub_key_id]["name"]
+                    new_hop = self.route_extension.create_new_hop(
+                            amount_msat,
+                            None,
+                            self.lnd.get_current_height() + self.route_extension.get_expiry_delta_last_hop(),
+                            pub_key=pub_key,
+                            chan_id=chan_id_name,
+                            capacity=chan_id_capacity)
+                    route_hops.extend([new_hop])
+                pqr_routes.extend([route_hops])
+            routes = []
+            for i in range(len(pqr_routes)):
+                lnd_route = ln.Route(total_time_lock=pqr_routes[i][-1].expiry,
+                                     total_fees=costs[i],
+                                     total_fees_msat=costs[i] * 1000,
+                                     total_amt=self.get_amount(),
+                                     total_amt_msat=self.get_amount() * 1000,
+                                     hops=pqr_routes[i])
+                routes.extend([lnd_route])
+
+        #f = open("pqr_routes.dat", "w+")
+        #f.write("-- pqr routes below\n\n")
+
+        #f = open("regular_routes.dat", "w+")
+        #f.write("-- regular routes below\n\n")
+
         self.num_requested_routes = num_routes_to_request
         for route in routes:
+            # add the last hop (back to us)
             modified_route = self.add_rebalance_channel(route)
+            chan_ids_along_the_route = [c.chan_id for c in modified_route.hops]
+            #f.write("-- this route is %s\n" % chan_ids_along_the_route)
+            #f.write("\n%s\n" % modified_route)
+            #f.write("---\n---\n")
             self.add_route(modified_route)
+
+        #f.close()
+
+
+        raw_input("did we make it there?")
 
     def add_rebalance_channel(self, route):
         return self.route_extension.add_rebalance_channel(route)

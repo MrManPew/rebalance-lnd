@@ -9,8 +9,9 @@ def debug(message):
 
 
 class Logic:
-    def __init__(self, lnd, first_hop_channel_id, last_hop_channel, amount, channel_ratio):
+    def __init__(self, lnd, pqr, first_hop_channel_id, last_hop_channel, amount, channel_ratio):
         self.lnd = lnd
+        self.pqr = pqr
         self.first_hop_channel_id = first_hop_channel_id
         self.last_hop_channel = last_hop_channel
         self.amount = amount
@@ -25,21 +26,28 @@ class Logic:
             debug("Forced first channel has ID %d" % self.first_hop_channel_id)
 
         payment_request = self.generate_invoice()
-        routes = Routes(self.lnd, payment_request, self.first_hop_channel_id, self.last_hop_channel)
+        routes = Routes(self.lnd, self.pqr, payment_request, self.first_hop_channel_id, self.last_hop_channel)
 
         if not routes.has_next():
             debug("Could not find any suitable route")
             return None
 
         tried_routes = []
+        f = open("pqr_routes.dat", "w+")
+        f.write("-- pqr routes below\n\n")
         while routes.has_next():
             route = routes.get_next()
             if self.route_is_invalid(route):
+                print "route is invalid lel"
+                raw_input("lel")
                 continue
             tried_routes.append(route)
 
             debug("Trying route #%d" % len(tried_routes))
             debug(Routes.print_route(route))
+            f.write("Route #%s\n" % len(tried_routes))
+            f.write("%s\n----\n" % route)
+            raw_input("ok?")
 
             response = self.lnd.send_payment(payment_request, [route])
             is_successful = response.payment_error == ""
@@ -63,12 +71,16 @@ class Logic:
     def route_is_invalid(self, route):
         first_hop = route.hops[0]
         if self.does_not_have_requested_first_hop(first_hop):
+            print "does_not_have_requested_first_hop"
             return True
         if self.low_local_ratio_after_sending(first_hop, route.total_amt):
+            print "low_local_ratio_after_sending"
             return True
         if self.target_is_first_hop(first_hop):
+            print "target_is_first_hop"
             return True
         if route.total_fees_msat > HIGH_FEES_THRESHOLD_MSAT:
+            print "high fees"
             return True
         return False
 
@@ -85,6 +97,7 @@ class Logic:
         return first_hop.chan_id == self.last_hop_channel.chan_id
 
     def does_not_have_requested_first_hop(self, first_hop):
+        print "Expected: %s, got: %s" % (self.first_hop_channel_id, first_hop.chan_id)
         if not self.first_hop_channel_id:
             return False
         return first_hop.chan_id != self.first_hop_channel_id

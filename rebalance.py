@@ -4,9 +4,9 @@ import argparse
 import math
 import os
 import sys
-import platform
 
 from lnd import Lnd
+from pqr import PQR
 
 from logic import Logic
 
@@ -42,7 +42,7 @@ def main():
     if to_channel and to_channel < 10000:
         # here we are in the "channel index" case
         index = int(to_channel) - 1
-        candidates = get_incoming_rebalance_candidates(channel_ratio)
+        candidates = get_incoming_rebalance_candidates()
         candidate = candidates[index]
         last_hop_channel = candidate
     else:
@@ -55,7 +55,11 @@ def main():
         print("Amount is 0, nothing to do")
         sys.exit()
 
-    response = Logic(lnd, first_hop_channel_id, last_hop_channel, amount, channel_ratio).rebalance()
+    #if no -f is specified, first_hop_channel_id is None here
+    #print "Here we are supposed to rebalance from %s to %s %s sats" % (first_hop_channel_id, last_hop_channel.chan_id, amount)
+    #raw_input("ok ma?")
+
+    response = Logic(lnd, pqr, first_hop_channel_id, last_hop_channel, amount, channel_ratio).rebalance()
     if response:
         print(response)
 
@@ -198,11 +202,12 @@ def get_capacity_and_ratio_bar(candidate):
 
 
 def get_columns():
-    if platform.system() == 'Linux' and sys.__stdin__.isatty():
+    if sys.__stdin__.isatty():
         return int(os.popen('stty size', 'r').read().split()[1])
     else:
         return 80
 
 
 lnd = Lnd()
+pqr = PQR(lnd)
 main()

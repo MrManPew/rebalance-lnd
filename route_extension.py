@@ -44,16 +44,16 @@ class RouteExtension:
 
         route.total_time_lock = total_time_lock
 
-    def create_new_hop(self, amount_msat, channel, expiry):
+    def create_new_hop(self, amount_msat, channel, expiry, pub_key=None, chan_id=None, capacity=None):
         new_hop = ln.Hop(
-            chan_capacity=channel.capacity,
+            chan_capacity=channel.capacity if channel else capacity,
             fee_msat=0,
             fee=0,
             expiry=expiry,
             amt_to_forward_msat=amount_msat,
             amt_to_forward=amount_msat // 1000,
-            chan_id=channel.chan_id,
-            pub_key=self.lnd.get_own_pubkey(),
+            chan_id=channel.chan_id if channel else chan_id,
+            pub_key=pub_key if pub_key else self.lnd.get_own_pubkey(),
         )
         return new_hop
 

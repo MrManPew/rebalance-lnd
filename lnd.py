@@ -22,6 +22,8 @@ class Lnd:
         grpc_channel = grpc.secure_channel(SERVER, combined_credentials, channel_options)
         self.stub = lnrpc.LightningStub(grpc_channel)
         self.graph = None
+        self.policies_cache = {}
+        self.init_policies_cache()
 
     @staticmethod
     def get_credentials(lnd_dir):
@@ -78,14 +80,30 @@ class Lnd:
         response = self.stub.QueryRoutes(request)
         return response.routes
 
+    def init_policies_cache(self):
+        print "init policies cache"
+        for edge in self.get_edges():
+            key1 = str(edge.channel_id) + "_" + edge.node1_pub
+            policy1 = edge.node1_policy
+            key2 = str(edge.channel_id) + "_" + edge.node2_pub
+            policy2 = edge.node2_policy
+            self.policies_cache[key1] = policy1
+            self.policies_cache[key2] = policy2
+        print "done: length is %s" % len(self.policies_cache)
+
     def get_policy(self, channel_id, source_pubkey):
         # node1_policy contains the fee base and rate for payments from node1 to node2
+        key = str(channel_id) + "_" + source_pubkey
+        if key in self.policies_cache:
+            return self.policies_cache[key]
         for edge in self.get_edges():
             if edge.channel_id == channel_id:
                 if edge.node1_pub == source_pubkey:
                     result = edge.node1_policy
+                    self.policies_cache[key] = result
                 else:
                     result = edge.node2_policy
+                    self.policies_cache[key] = result
                 return result
 
     def send_payment(self, payment_request, routes):
