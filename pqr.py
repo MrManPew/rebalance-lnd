@@ -96,28 +96,50 @@ class PQR:
 
 	def pyqueryroutes(self, first_hop_channel_id, last_hop_channel_remote_pubkey, amount, num_routes):
 
+		# find the pubkey of the node we should start the search from
+		# TODO: make that dynamic ><
 		own_node_pubkey = "0269b91661812bae52280a68eec2b89d38bf26b33966441ad70aa365e120a125ff"
 
-		first_hop_id = self.g.es.select(name_eq=(str(first_hop_channel_id)+"_1"))[0].index
-		(node1, node2) = self.g.es[first_hop_id].tuple
-		if self.g.vs[node1]["name"] == own_node_pubkey:
-			node_from_pubkey = self.g.vs[node2]["name"]
+		if first_hop_channel_id:
+			# when -f was specified
+			first_hop_id = self.g.es.select(name_eq=(str(first_hop_channel_id)+"_1"))[0].index
+			(node1, node2) = self.g.es[first_hop_id].tuple
+			if self.g.vs[node1]["name"] == own_node_pubkey:
+				node_from_pubkey = self.g.vs[node2]["name"]
+			else:
+				node_from_pubkey = self.g.vs[node1]["name"]
+
+			self.node_from_pubkey = node_from_pubkey
 		else:
-			node_from_pubkey = self.g.vs[node1]["name"]
+			# here no -f paramater was used, any first channel is fair game, so we use our own pubkey as first node
+			self.node_from_pubkey = own_node_pubkey
 
-		self.node_from_pubkey = node_from_pubkey
 
-		# just need to blacklist my own node's direct channels in order not to use that short route :D
+		# modes currently supported: -t, -f/-t. TODO: -f only
+		# now we just need to blacklist my own node's direct channels in order not to use that short route :D
+		# this is only in -f mode, if no source channel was specified we need to be smarter, see below
+		if first_hop_channel_id:
+			self.first_hop_capacity = self.g.es.select(name_eq=(str(first_hop_channel_id)+"_1"))[0]["capacity"]
+			own_node_pubkey_id = self.g.vs.select(name_eq=own_node_pubkey)[0].index
+			self.g.delete_vertices(own_node_pubkey_id)
+		else:
+			# when -f is not specified, we need to keep all channels going OUT of our node, but remove the
+			# ones coming in; we'll use the directionality of the graph for that
+			# TODO
+			print "No -f mode used, blacklisting all incoming channels"
+			own_node_pubkey_id = self.g.vs.select(name_eq=own_node_pubkey)[0].index
+			all_incoming_channels = self.g.es.select(_target=own_node_pubkey_id)
+			print "Blacklisting %d directional channels" % len(all_incoming_channels)
+			self.g.delete_edges(all_incoming_channels)
+			raw_input("almost done here")
 
-		self.first_hop_capacity = self.g.es.select(name_eq=(str(first_hop_channel_id)+"_1"))[0]["capacity"]
 
-		own_node_pubkey_id = self.g.vs.select(name_eq=own_node_pubkey)[0].index
-		self.g.delete_vertices(own_node_pubkey_id)
 		print summary(self.g)
 
+		# now we prune the graph by removing useless channels (with a small capacity, currently <3*amount)
 		print "Getting subgraph"
 		# subgraph parameters are in sats
-		self.g = self.subgraph_capacity(self.g, min=2*amount, max=2e10)
+		self.g = self.subgraph_capacity(self.g, min=3*amount, max=2e20)
 		print summary(self.g)
 
 		# 3rd parameter is the amount in sats

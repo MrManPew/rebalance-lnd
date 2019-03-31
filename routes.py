@@ -55,20 +55,24 @@ class Routes:
                                                           self.get_amount(),
                                                           num_routes_to_request)
 
-            # TODO: turn what is a list of channel IDs into a list of proper hops
-            # plus add the first hop between our node using the forced channel
             pqr_routes = []
             for j in range(len(routes)):
                 route = routes[j]
 
-                first_hop = self.route_extension.create_new_hop(self.get_amount()*1000,
-                                                None,
-                                                self.lnd.get_current_height() + self.route_extension.get_expiry_delta_last_hop(),
-                                                pub_key=self.pqr.node_from_pubkey,
-                                                chan_id=self.first_hop_channel_id,
-                                                capacity=self.pqr.first_hop_capacity)
-                route_hops = [first_hop]
+                # when we use -f, the route will have been computed from that first hop onwards, so we need to re-add it
+                if self.first_hop_channel_id:
+                    first_hop = self.route_extension.create_new_hop(self.get_amount()*1000,
+                                                    None,
+                                                    self.lnd.get_current_height() + self.route_extension.get_expiry_delta_last_hop(),
+                                                    pub_key=self.pqr.node_from_pubkey,
+                                                    chan_id=self.first_hop_channel_id,
+                                                    capacity=self.pqr.first_hop_capacity)
+                    route_hops = [first_hop]
+                else:
+                    # when -f was not used, we computed routes from our own node, so no need to add an extra first hop here
+                    route_hops = []
 
+                # this takes all routes from pqr and turns them into proper series of ln.Hops
                 for i in range(len(chans[j])):
                     amount_msat = self.get_amount()*1000
                     chan_id_name = int(chans[j][i]["name"][:-2])
@@ -104,7 +108,8 @@ class Routes:
 
         self.num_requested_routes = num_routes_to_request
         for route in routes:
-            # add the last hop (back to us)
+            # in -t mode, add the last hop (back to us)
+            # TODO: support -f only mode
             modified_route = self.add_rebalance_channel(route)
             chan_ids_along_the_route = [c.chan_id for c in modified_route.hops]
             #f.write("-- this route is %s\n" % chan_ids_along_the_route)
