@@ -64,7 +64,7 @@ class PQR:
 		# add the capacity
 		print "Adding capacity"
 		list_of_lnd_chan_capacity = [e.capacity for e in graph.edges] * 2 # capacity goes both ways
-		g.es["capacity"] = list_of_lnd_chan_capacity
+		g.es["capacity"] = list_of_lnd_chan_capacity	
 		# add the fee parameters
 		print "Adding fee parameters"
 		print "Get policies"
@@ -131,7 +131,34 @@ class PQR:
 			all_incoming_channels = self.g.es.select(_target=own_node_pubkey_id)
 			print "Blacklisting %d directional channels" % len(all_incoming_channels)
 			self.g.delete_edges(all_incoming_channels)
-			raw_input("almost done here")
+			print "Also blacklisting the one existing channel we would like to rebalance"
+			last_hop_channel_remote_pubkey_id = self.g.vs.select(name_eq=last_hop_channel_remote_pubkey)[0].index
+			that_one_channel = self.g.es.select(_source=own_node_pubkey_id, _target=last_hop_channel_remote_pubkey_id)
+			self.g.delete_edges(that_one_channel)
+			print "Finally, blacklisting all channels which would fail the low local ratio test"
+			# TODO
+
+			def get_local_ratio(channel, amount):
+			    remote = channel.remote_balance + amount
+			    local = channel.local_balance - amount
+			    return float(local) / (remote + local)
+
+			# TODO: pass channel_ratio here in order to do that check respecting the CLI parameter
+			invalid_local_chans = [c.chan_id for c in 
+						list(filter(lambda c: get_local_ratio(c, amount) < 1 - 0.5, self.lnd.get_channels()))]
+			print "invalid chans:\n %s" % sorted(invalid_local_chans)
+			print "Blacklisting %d channels" % len(invalid_local_chans)
+			print "own_node_pubkey: %s" % own_node_pubkey
+			own_channels = self.g.es.select(_source=own_node_pubkey_id)
+			own_channels_ = [(c.index, c["name"]) for c in own_channels]
+			print "still %d own channels " % len(own_channels_)
+			print own_channels_
+			for index, name in own_channels_:
+				#raw_input("Checking for %s, %s" % (name, int(name[:-2])))
+				if int(name[:-2]) in invalid_local_chans:
+					print "Deleting %s" % name
+					self.g.delete_edges(index)
+			raw_input("ok?")
 
 
 		print summary(self.g)
@@ -145,13 +172,15 @@ class PQR:
 		# 3rd parameter is the amount in sats
 		yen = Yen(self.lnd, self.g, amount)
 
+		#yen.display_channel_info("612680864474005505_1")
+
 		#node_from_pubkey = "034a0fa8e6d83688f3e19c2bcb93fb9d6f366d6c937dbc3c744cb21db6e093958b"
 		#node_to_pubkey = "02c287d1be9c9fa13d4ded0b0432b7e2367b1b20d822ab76546c4bb67cac1bc6e1"
 		node_to_pubkey = last_hop_channel_remote_pubkey
-		yen.display_node_info(node_from_pubkey)
+		yen.display_node_info(self.node_from_pubkey)
 		yen.display_node_info(node_to_pubkey)
 
-		node_from_id = yen.get_node_id_from_pubkey(node_from_pubkey)
+		node_from_id = yen.get_node_id_from_pubkey(self.node_from_pubkey)
 		node_to_id = yen.get_node_id_from_pubkey(node_to_pubkey)
 		
 		# yen_igraph(self, source, target, num_k, weights)

@@ -97,7 +97,6 @@ class Logic:
         return first_hop.chan_id == self.last_hop_channel.chan_id
 
     def does_not_have_requested_first_hop(self, first_hop):
-        print "Expected: %s, got: %s" % (self.first_hop_channel_id, first_hop.chan_id)
         if not self.first_hop_channel_id:
             return False
         return first_hop.chan_id != self.first_hop_channel_id
