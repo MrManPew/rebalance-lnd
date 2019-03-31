@@ -153,11 +153,13 @@ class PQR:
 			own_channels_ = [(c.index, c["name"]) for c in own_channels]
 			print "still %d own channels " % len(own_channels_)
 			print own_channels_
+			to_ban = []
 			for index, name in own_channels_:
 				#raw_input("Checking for %s, %s" % (name, int(name[:-2])))
 				if int(name[:-2]) in invalid_local_chans:
 					print "Deleting %s" % name
-					self.g.delete_edges(index)
+					to_ban.extend([index])
+			self.g.delete_edges(to_ban)
 			raw_input("ok?")
 
 
