@@ -160,7 +160,7 @@ class PQR:
 					print "Deleting %s" % name
 					to_ban.extend([index])
 			self.g.delete_edges(to_ban)
-			raw_input("ok?")
+			#raw_input("ok?")
 
 
 		print summary(self.g)

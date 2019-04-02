@@ -120,7 +120,7 @@ class Routes:
         #f.close()
 
 
-        raw_input("did we make it there?")
+        #raw_input("did we make it there?")
 
     def add_rebalance_channel(self, route):
         return self.route_extension.add_rebalance_channel(route)

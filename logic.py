@@ -47,7 +47,7 @@ class Logic:
             debug(Routes.print_route(route))
             f.write("Route #%s\n" % len(tried_routes))
             f.write("%s\n----\n" % route)
-            raw_input("ok?")
+            #raw_input("ok?")
 
             response = self.lnd.send_payment(payment_request, [route])
             is_successful = response.payment_error == ""
