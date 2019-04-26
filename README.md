@@ -8,7 +8,8 @@ Use at your own risk.
 The work done here reimplements the `lnd` call we rely on to get candidate routes for rebalances, `QueryRoutes`.
 It does so by using a python/igraph implementation of Yen's k-shortest path (ksp) algorithm using a few (hopefully smart)
 tricks to deal with the dynamic nature of fees in the network.
-There is a lot more to do though, hence the completely separate dev branch used here.
+There is a lot more to do though, hence the completely separate dev branch used here. 
+**Make sure to chagne own_node_pubkey in pyqueryroutes**
 
 ## Installation
 
