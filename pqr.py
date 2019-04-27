@@ -168,11 +168,11 @@ class PQR:
 		# now we prune the graph by removing useless channels (with a small capacity, currently <3*amount)
 		print "Getting subgraph"
 		# subgraph parameters are in sats
-		self.g = self.subgraph_capacity(self.g, min=3*amount, max=2e20)
-		print summary(self.g)
+		sub_g = self.subgraph_capacity(self.g, min=3*amount, max=2e20)
+		print summary(sub_g)
 
 		# 3rd parameter is the amount in sats
-		yen = Yen(self.lnd, self.g, amount)
+		yen = Yen(self.lnd, sub_g, amount)
 
 		#yen.display_channel_info("612680864474005505_1")
 
@@ -191,14 +191,14 @@ class PQR:
 		A_chans = []
 
 		for p, c in zip(A, A_costs):
-			channels = [self.g.es.select(_source=p[i], _target=p[i+1])[0] for i in range(len(p)-1)]
+			channels = [sub_g.es.select(_source=p[i], _target=p[i+1])[0] for i in range(len(p)-1)]
 			A_chans.extend([channels])
 			print "Exact cost: %d (estimated %d) - %s - %s" % (c,
-															   sum([self.g.es.select(_source=p[i], _target=p[i+1])[0]["weight"]
-															   for i in range(len(p)-1)]),
-															   p,
-															   [c["name"] for c in channels]
-															   )
+									   sum([sub_g.es.select(_source=p[i], _target=p[i+1])[0]["weight"]
+									   for i in range(len(p)-1)]),
+									   p,
+									   [c["name"] for c in channels]
+									   )
 		return A, A_costs, A_chans
 
 
